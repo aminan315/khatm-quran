@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ختم ماهانه قرآن کریم</title>
+<style>
+:root{--green:#07583f;--green2:#0b7654;--gold:#d7b66d;--cream:#fffdf6;--ink:#18372d}
+*{box-sizing:border-box}body{margin:0;font-family:Tahoma,Arial,sans-serif;background:linear-gradient(145deg,#f7f5e9,#e6efe8);color:var(--ink)}
+header{background:linear-gradient(120deg,#064632,#0c7653);color:#fff;padding:28px 16px;text-align:center;border-bottom:4px solid var(--gold)}
+header .crescent{font-size:35px;color:#f2d68d}h1{margin:8px 0;font-size:clamp(22px,5vw,32px)}header p{margin:8px 0 0;color:#e9f3ed}
+main{max-width:850px;margin:22px auto;padding:0 14px 36px}.panel{background:white;border:1px solid #d8e4db;border-radius:18px;padding:18px;margin:14px 0;box-shadow:0 7px 24px #174d3210}
+button{font:inherit;border:0;border-radius:12px;padding:12px 16px;cursor:pointer;background:var(--green);color:white;font-weight:bold}button:disabled{opacity:.5;cursor:not-allowed}.google{background:#fff;color:#333;border:1px solid #ddd;width:100%;display:flex;align-items:center;justify-content:center;gap:10px}.google b{color:#4285f4;font-size:19px}
+.status{padding:10px;border-radius:10px;background:#f0f5f0;margin-top:12px;white-space:pre-wrap}.muted{color:#60756b;font-size:13px;line-height:1.9}.userbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px;margin-top:15px}.juz{background:#f6f8f4;border:1px solid #d4dfd5;color:var(--green);min-height:60px}.juz.taken{background:#eee;color:#777;border-color:#ddd}.juz.mine{background:#dff1e5;border:2px solid var(--green2)}.juz small{display:block;font-weight:normal;font-size:11px;margin-top:4px}
+.intents{line-height:2.1}.credit{text-align:center;margin:24px 0 0;color:#53695e;font-size:13px}.credit strong{font-size:17px;color:var(--green)}
+.hidden{display:none!important}
+@media(max-width:420px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.panel{padding:14px}}
+</style>
+</head>
+<body>
+<header><div class="crescent">☾ ۞</div><h1>ختم ماهانه قرآن کریم</h1><p>با هم، برای نیت‌های خیر</p></header>
+<main>
+<section class="panel">
+<h2>ورود با حساب گوگل</h2>
+<p class="muted">برای ثبت جزءها، ابتدا با حساب گوگل وارد شوید. انتخاب‌ها پس از راه‌اندازی Firebase بین همهٔ کاربران مشترک می‌شود.</p>
+<button id="login" class="google"><b>G</b> ورود با Google</button>
+<div id="userbar" class="userbar hidden"><span id="who"></span><button id="logout">خروج</button></div>
+<div id="status" class="status">برای شروع، تنظیمات Firebase را طبق راهنمای داخل فایل ZIP وارد کنید.</div>
+</section>
+<section class="panel">
+<div class="userbar"><h2 style="margin:0">انتخاب جزء قرآن</h2><span id="cycleLabel" class="muted"></span></div>
+<p class="muted">هر جزء فقط برای یک نفر قابل رزرو است. انتخاب‌ها از روز ۱۱ هر ماه تا آغاز دورهٔ بعد فعال‌اند.</p>
+<div id="grid" class="grid"></div>
+<p class="muted">سبز روشن: جزء انتخاب‌شدهٔ شما • خاکستری: رزروشده • سفید: آزاد</p>
+</section>
+<section class="panel intents">
+<h2>نیت ختم</h2>
+- تعجیل در فرج امام زمان (عج)<br>
+- گشایش امور مالی و اقتصادی مردم<br>
+- برآورده شدن حاجت‌های خیر<br>
+- هدیهٔ ثواب به روح مرحوم دایی خداداد
+</section>
+<div class="credit">سازنده: <strong>محمد امین</strong> روستازاده</div>
+</main>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, deleteDoc, collection, onSnapshot, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+// After creating your Firebase project, paste its Web App config below.
+const firebaseConfig = {
+  apiKey: "PASTE_API_KEY",
+  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
+  projectId: "PASTE_PROJECT_ID",
+  appId: "PASTE_APP_ID"
+};
+const ready = !Object.values(firebaseConfig).some(v => String(v).startsWith("PASTE_"));
+const $ = id => document.getElementById(id);
+const status = msg => $("status").textContent = msg;
+let auth, db, currentUser = null, unsubscribe = null, reservations = {};
+const cycleStart = () => {
+  const parts = new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Tehran",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
+  const p = Object.fromEntries(parts.map(x=>[x.type,x.value]));
+  let y=+p.year,m=+p.month,d=+p.day;
+  if(d<11){m--;if(m<1){m=12;y--;}}
+  return `${y}-${String(m).padStart(2,"0")}-11`;
+};
+const cycle = cycleStart();
+$("cycleLabel").textContent = "شروع دوره: " + cycle;
+function render(){
+  const grid=$("grid"); grid.innerHTML="";
+  for(let n=1;n<=30;n++){
+    const r=reservations[n], mine=!!(r&&currentUser&&r.uid===currentUser.uid);
+    const b=document.createElement("button"); b.className="juz"+(r?(mine?" mine":" taken"):"");
+    b.innerHTML=`جزء ${n}<small>${r?(mine?"انتخاب شما":"رزرو شده"):"آزاد"}</small>`;
+    b.disabled=!currentUser || (!!r&&!mine);
+    b.addEventListener("click",()=>toggle(n));
+    grid.appendChild(b);
+  }
+}
+async function toggle(n){
+  if(!currentUser){status("ابتدا با حساب گوگل وارد شوید.");return;}
+  const ref=doc(db,"cycles",cycle,"reservations",String(n));
+  try{
+    await runTransaction(db,async tx=>{
+      const snap=await tx.get(ref);
+      if(snap.exists()){
+        if(snap.data().uid!==currentUser.uid) throw new Error("این جزء قبلاً رزرو شده است.");
+        tx.delete(ref);
+      }else{
+        tx.set(ref,{uid:currentUser.uid,name:currentUser.displayName||"",email:currentUser.email||"",juz:n,createdAt:new Date().toISOString()});
+      }
+    });
+    status("تغییر انتخاب ذخیره شد.");
+  }catch(e){status(e.message||"خطا در ذخیره. تنظیمات Firebase و قوانین دسترسی را بررسی کنید.");}
+}
+if(ready){
+  try{
+    const app=initializeApp(firebaseConfig); auth=getAuth(app); db=getFirestore(app);
+    $("login").onclick=async()=>{try{await signInWithPopup(auth,new GoogleAuthProvider())}catch(e){status("ورود انجام نشد: "+e.message)}};
+    $("logout").onclick=()=>signOut(auth);
+    onAuthStateChanged(auth,user=>{
+      currentUser=user;
+      $("login").classList.toggle("hidden",!!user);
+      $("userbar").classList.toggle("hidden",!user);
+      $("who").textContent=user?`وارد شده: ${user.displayName||user.email}`:"";
+      if(unsubscribe)unsubscribe();
+      if(user){
+        unsubscribe=onSnapshot(collection(db,"cycles",cycle,"reservations"),snap=>{
+          reservations={};snap.forEach(d=>reservations[Number(d.id)]=d.data());render();
+        },e=>status("خطای دسترسی به اطلاعات: "+e.message));
+        status("وارد شدید. جزء دلخواه را انتخاب کنید.");
+      }else{reservations={};render();status("برای انتخاب جزء با Google وارد شوید.");}
+    });
+  }catch(e){status("خطای تنظیمات: "+e.message);}
+}else{
+  $("login").onclick=()=>status("ابتدا Firebase را طبق راهنمای README_FA.txt راه‌اندازی کنید و تنظیمات وب را در کد جایگزین کنید.");
+  status("این فایل آمادهٔ راه‌اندازی است؛ برای ورود گوگل و اشتراک‌گذاری واقعی، تنظیمات رایگان Firebase لازم است.");
+}
+render();
+</script>
+</body></html>
